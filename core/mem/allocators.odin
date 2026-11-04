@@ -1827,8 +1827,10 @@ Initialize a dynamic arena.
 This procedure initializes a dynamic arena. The specified `block_allocator`
 will be used to allocate arena blocks, and `array_allocator` to allocate
 arrays of blocks and out-band blocks. The blocks have the default size of
-`block_size` and out-band threshold will be `out_band_size`. All allocations
-will be aligned at a minimum to a boundary specified by `minimum_alignment`.
+`block_size` and out-band threshold will be `out_band_size`: allocations of at
+least `out_band_size` bytes, and any that do not fit a block once aligned, are
+allocated out-band. All allocations will be aligned at a minimum to a boundary
+specified by `minimum_alignment`.
 */
 dynamic_arena_init :: proc(
 	arena: ^Dynamic_Arena,
@@ -1972,18 +1974,16 @@ memory region.
 */
 @(require_results)
 dynamic_arena_alloc_bytes_non_zeroed :: proc(a: ^Dynamic_Arena, size: int, alignment: int = DEFAULT_ALIGNMENT, loc := #caller_location) -> ([]byte, Allocator_Error) {
-	if size >= a.out_band_size {
+	actual_alignment := max(a.minimum_alignment, alignment)
+	n := align_formula(size, actual_alignment)
+	// What doesn't fit a block once aligned goes out-band too, however far below `out_band_size`.
+	if size >= a.out_band_size || n > a.block_size {
 		assert(a.out_band_allocations.allocator.procedure != nil, "Backing array allocator must be initialized", loc=loc)
 		memory, err := alloc_bytes_non_zeroed(size, alignment, a.out_band_allocations.allocator, loc)
 		if memory != nil {
 			append(&a.out_band_allocations, raw_data(memory), loc = loc)
 		}
 		return memory, err
-	}
-	actual_alignment := max(a.minimum_alignment, alignment)
-	n := align_formula(size, actual_alignment)
-	if n > a.block_size {
-		return nil, .Invalid_Argument
 	}
 	memory := align_forward(a.current_pos, uintptr(actual_alignment))
 	margin := int(uintptr(memory) - uintptr(a.current_pos))
