@@ -171,6 +171,21 @@ test_dynamic_arena_grow_past_block :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_dynamic_arena_minimum_alignment_out_of_band :: proc(t: ^testing.T) {
+	// Out-band allocations keep the minimum alignment too, as in-block ones do.
+	arena: mem.Dynamic_Arena
+	mem.dynamic_arena_init(&arena, block_size = 256, out_band_size = 512, minimum_alignment = 64)
+	defer mem.dynamic_arena_destroy(&arena)
+	allocator := mem.dynamic_arena_allocator(&arena)
+
+	for size in ([?]int{100, 300, 600}) {
+		data, err := mem.alloc_bytes(size, 1, allocator)
+		testing.expectf(t, err == .None && len(data) == size, "size %v: got %v bytes, %v", size, len(data), err)
+		testing.expectf(t, uintptr(raw_data(data)) % 64 == 0, "size %v: expected alignment 64, got %p", size, raw_data(data))
+	}
+}
+
+@(test)
 test_intentional_leaks :: proc(t: ^testing.T) {
 	testing.expect_leaks(t, intentionally_leaky_test, leak_verifier)
 }

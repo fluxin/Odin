@@ -1979,7 +1979,7 @@ dynamic_arena_alloc_bytes_non_zeroed :: proc(a: ^Dynamic_Arena, size: int, align
 	// What doesn't fit a block once aligned goes out-band too, however far below `out_band_size`.
 	if size >= a.out_band_size || n > a.block_size {
 		assert(a.out_band_allocations.allocator.procedure != nil, "Backing array allocator must be initialized", loc=loc)
-		memory, err := alloc_bytes_non_zeroed(size, alignment, a.out_band_allocations.allocator, loc)
+		memory, err := alloc_bytes_non_zeroed(size, actual_alignment, a.out_band_allocations.allocator, loc)
 		if memory != nil {
 			append(&a.out_band_allocations, raw_data(memory), loc = loc)
 		}
